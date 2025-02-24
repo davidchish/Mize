@@ -40,23 +40,31 @@
                             {
                                 waitTime = localWait;
                             }
-                        }
+                        }   
                     }
                 }
 
-
-                if (waitTime == TimeSpan.Zero)
+                if (waitTime > TimeSpan.Zero)
                 {
 
-                    foreach (var limit in _limits)
-                    {
-                        limit.Timestamps.Enqueue(now);
-                    }
+                    await Task.Delay(waitTime);
+                   
+                }
+                else
+                {
                     break;
                 }
 
 
-                await Task.Delay(waitTime);
+                DateTime executionTime = DateTime.UtcNow;
+                lock (_lock)
+                {
+                    foreach (var limit in _limits)
+                    {
+                        limit.Timestamps.Enqueue(executionTime);
+                    }
+                }
+
             }
             await _action(argument);
         }
