@@ -21,19 +21,20 @@
                 TimeSpan waitTime = TimeSpan.Zero;
                 DateTime now = DateTime.UtcNow;
 
-                lock (_lock)
+
+
+                foreach (var limit in _limits)
                 {
-                   
-                    foreach (var limit in _limits)
+                    lock (_lock)
                     {
                         while (limit.Timestamps.Count > 0 && (now - limit.Timestamps.Peek()) >= limit.Period)
                         {
                             limit.Timestamps.Dequeue();
                         }
 
-                       
+
                         if (limit.Timestamps.Count >= limit.Limit)
-                        { 
+                        {
                             TimeSpan localWait = limit.Period - (now - limit.Timestamps.Peek());
                             if (localWait > waitTime)
                             {
@@ -41,19 +42,20 @@
                             }
                         }
                     }
-
-                   
-                    if (waitTime == TimeSpan.Zero)
-                    {
-                      
-                        foreach (var limit in _limits)
-                        {
-                            limit.Timestamps.Enqueue(now);
-                        }
-                        break; 
-                    }
                 }
-         
+
+
+                if (waitTime == TimeSpan.Zero)
+                {
+
+                    foreach (var limit in _limits)
+                    {
+                        limit.Timestamps.Enqueue(now);
+                    }
+                    break;
+                }
+
+
                 await Task.Delay(waitTime);
             }
             await _action(argument);
