@@ -52,18 +52,18 @@
                 }
                 else
                 {
+                    DateTime executionTime = DateTime.UtcNow;
+                    lock (_lock)
+                    {
+                        foreach (var limit in _limits)
+                        {
+                            limit.Timestamps.Enqueue(executionTime);
+                        }
+                    }
+
                     break;
                 }
 
-
-                DateTime executionTime = DateTime.UtcNow;
-                lock (_lock)
-                {
-                    foreach (var limit in _limits)
-                    {
-                        limit.Timestamps.Enqueue(executionTime);
-                    }
-                }
 
             }
             await _action(argument);
