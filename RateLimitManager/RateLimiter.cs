@@ -16,57 +16,52 @@
 
         public async Task Perform(TArg argument)
         {
-            while (true)
+
+            TimeSpan waitTime = TimeSpan.Zero;
+            DateTime now = DateTime.UtcNow;
+
+            lock (_lock)
             {
-                TimeSpan waitTime = TimeSpan.Zero;
-                DateTime now = DateTime.UtcNow;
-
-
 
                 foreach (var limit in _limits)
                 {
-                    lock (_lock)
+
+                    while (limit.Timestamps.Count > 0 && (now - limit.Timestamps.Peek()) >= limit.Period)
                     {
-                        while (limit.Timestamps.Count > 0 && (now - limit.Timestamps.Peek()) >= limit.Period)
-                        {
-                            limit.Timestamps.Dequeue();
-                        }
-
-
-                        if (limit.Timestamps.Count >= limit.Limit)
-                        {
-                            TimeSpan localWait = limit.Period - (now - limit.Timestamps.Peek());
-                            if (localWait > waitTime)
-                            {
-                                waitTime = localWait;
-                            }
-                        }   
+                        limit.Timestamps.Dequeue();
                     }
-                }
 
-                if (waitTime > TimeSpan.Zero)
-                {
 
-                    await Task.Delay(waitTime);
-                   
-                }
-                else
-                {
-                    DateTime executionTime = DateTime.UtcNow;
-                    lock (_lock)
+                    if (limit.Timestamps.Count >= limit.Limit)
                     {
-                        foreach (var limit in _limits)
+                        TimeSpan localWait = limit.Period - (now - limit.Timestamps.Peek());
+                        if (localWait > waitTime)
                         {
-                            limit.Timestamps.Enqueue(executionTime);
+                            waitTime = localWait;
                         }
                     }
 
-                    break;
                 }
-
-
             }
+            if (waitTime > TimeSpan.Zero)
+            {
+                await Task.Delay(waitTime);//The delay logic remains safe because timestamps are rechecked only after waiting and just before enqueuing
+            }
+            DateTime executionTime = DateTime.UtcNow;
+            lock (_lock)
+            {
+
+                foreach (var limit in _limits)
+                {
+                    limit.Timestamps.Enqueue(executionTime);
+                }
+            }
+        
+
             await _action(argument);
+
         }
+
     }
 }
+
